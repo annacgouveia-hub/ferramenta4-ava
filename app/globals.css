@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --color-primary:      #213B88;
+  --color-primary-dark: #172E68;
+  --color-accent:       #FA4616;
+  --color-accent-dark:  #D3361C;
+  --color-bg:           #F7F5F0;
+  --color-surface:      #FFFFFF;
+  --color-lavanda:      #C2C2FF;
+  --color-text:         #213B88;
+  --color-text-inv:     #FFFFFF;
+  --color-muted:        rgba(33,59,136,0.50);
+  --color-border:       rgba(33,59,136,0.20);
+
+  --font-main: var(--font-dm-sans), 'DM Sans', sans-serif;
+
+  --radius-btn:   4px;
+  --radius-card:  4px;
+  --radius-input: 4px;
+  --radius-badge: 2px;
+
+  --shadow-sm:  0 1px 3px rgba(33,59,136,0.08);
+  --shadow-md:  0 4px 12px rgba(33,59,136,0.12);
+  --shadow-cta: 0 6px 20px rgba(250,70,22,0.35);
+}
+
+@theme inline {
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-text);
+  --font-sans: var(--font-main);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-main);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Caixa baixa intencional em botões e labels */
+button, .label, .badge {
+  text-transform: lowercase;
+}
+
+/* Scrollbar sutil */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 2px;
+}
