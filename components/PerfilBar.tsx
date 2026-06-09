@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Perfil, Canal } from '@/lib/types'
 
@@ -18,9 +18,23 @@ const FREQUENCIAS = [
   { valor: 10, label: '10 por semana' },
 ]
 
-export default function PerfilBar({ perfil: inicial }: { perfil: Perfil }) {
+const NICHOS_SUGERIDOS = [
+  'bem-estar', 'saúde e fitness', 'gastronomia', 'bebidas', 'moda', 'beleza',
+  'skincare', 'lifestyle', 'casa e decoração', 'sustentabilidade', 'tecnologia',
+  'arte e cultura', 'viagem', 'educação', 'infantil e família', 'pet',
+  'orgânicos e naturais', 'esportes',
+]
+
+export default function PerfilBar({
+  perfil: inicial,
+  totalContatos = 0,
+}: {
+  perfil: Perfil
+  totalContatos?: number
+}) {
   const supabase = createClient()
   const router = useRouter()
+  const pathname = usePathname()
   const [perfil, setPerfil] = useState(inicial)
   const [editando, setEditando] = useState(false)
   const [form, setForm] = useState({
@@ -29,8 +43,11 @@ export default function PerfilBar({ perfil: inicial }: { perfil: Perfil }) {
     icp: inicial.icp,
     rotina_frequencia: inicial.rotina_frequencia,
     rotina_canais: inicial.rotina_canais as Canal[],
+    nichos_interesse: (inicial.nichos_interesse ?? []) as string[],
   })
+  const [outroNicho, setOutroNicho] = useState('')
   const [loading, setLoading] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
   function set(campo: string, valor: unknown) {
@@ -46,15 +63,59 @@ export default function PerfilBar({ perfil: inicial }: { perfil: Perfil }) {
     }))
   }
 
+  function toggleNicho(nicho: string) {
+    setForm((prev) => ({
+      ...prev,
+      nichos_interesse: prev.nichos_interesse.includes(nicho)
+        ? prev.nichos_interesse.filter((n) => n !== nicho)
+        : [...prev.nichos_interesse, nicho],
+    }))
+  }
+
   async function logout() {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  async function uploadAvatar(file: File) {
+    setUploadingAvatar(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `${perfil.id}/avatar.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+      const url = `${urlData.publicUrl}?t=${Date.now()}`
+
+      const { data, error: updateError } = await supabase
+        .from('perfis')
+        .update({ avatar_url: url })
+        .eq('id', perfil.id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+      setPerfil(data as Perfil)
+    } catch {
+      setErro('erro ao subir a foto. tenta de novo.')
+    } finally {
+      setUploadingAvatar(false)
+    }
   }
 
   async function salvarPerfil() {
     setLoading(true)
     setErro(null)
     try {
+      const nichosFinal = outroNicho.trim()
+        ? [...form.nichos_interesse, outroNicho.trim()]
+        : form.nichos_interesse
+
       const { data, error } = await supabase
         .from('perfis')
         .update({
@@ -63,12 +124,14 @@ export default function PerfilBar({ perfil: inicial }: { perfil: Perfil }) {
           icp: form.icp,
           rotina_frequencia: form.rotina_frequencia,
           rotina_canais: form.rotina_canais,
+          nichos_interesse: nichosFinal,
         })
         .eq('id', perfil.id)
         .select()
         .single()
       if (error) throw error
       setPerfil(data as Perfil)
+      setOutroNicho('')
       setEditando(false)
     } catch {
       setErro('algo deu errado. tenta de novo.')
@@ -76,6 +139,9 @@ export default function PerfilBar({ perfil: inicial }: { perfil: Perfil }) {
       setLoading(false)
     }
   }
+
+  const nichos = perfil.nichos_interesse ?? []
+  const inicialNome = perfil.nome.charAt(0).toLowerCase()
 
   const inputStyle = {
     background: 'var(--color-bg)',
@@ -95,75 +161,174 @@ export default function PerfilBar({ perfil: inicial }: { perfil: Perfil }) {
 
   return (
     <>
-      <div
-        className="w-full px-6 py-3 flex items-center justify-between"
-        style={{
-          background: 'var(--color-primary)',
-          borderBottom: '1px solid var(--color-primary-dark)',
-        }}
-      >
-        <div className="flex items-center gap-6">
+      <header style={{ background: 'var(--color-primary)' }}>
+
+        {/* Linha topo: branding + ações */}
+        <div
+          className="px-6 pt-4 flex items-center justify-between"
+          style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}
+        >
           <span
-            className="text-xs font-medium lowercase"
-            style={{ color: 'var(--color-text-inv)' }}
+            className="text-xs lowercase tracking-widest pb-3"
+            style={{ color: 'rgba(255,255,255,0.3)' }}
           >
-            {perfil.nome}
+            a arte de vender arte
           </span>
-          <span
-            className="text-xs lowercase hidden sm:block"
-            style={{ color: 'rgba(255,255,255,0.55)' }}
-          >
-            {perfil.o_que_faz.length > 60
-              ? perfil.o_que_faz.slice(0, 60) + '...'
-              : perfil.o_que_faz}
-          </span>
+          <div className="flex items-center gap-4 pb-3">
+            <button
+              onClick={() => {
+                setForm({
+                  nome: perfil.nome,
+                  o_que_faz: perfil.o_que_faz,
+                  icp: perfil.icp,
+                  rotina_frequencia: perfil.rotina_frequencia,
+                  rotina_canais: perfil.rotina_canais as Canal[],
+                  nichos_interesse: (perfil.nichos_interesse ?? []) as string[],
+                })
+                setOutroNicho('')
+                setErro(null)
+                setEditando(true)
+              }}
+              className="text-xs lowercase transition-all"
+              style={{ color: 'rgba(255,255,255,0.55)' }}
+            >
+              editar perfil
+            </button>
+            <button
+              onClick={logout}
+              className="text-xs lowercase transition-all"
+              style={{ color: 'rgba(255,255,255,0.3)' }}
+            >
+              sair
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <span
-            className="text-xs lowercase hidden md:block"
-            style={{ color: 'rgba(255,255,255,0.55)' }}
-          >
-            {perfil.rotina_frequencia}× por semana
-          </span>
-          <a
-            href="/contatos"
-            className="text-xs lowercase transition-all"
-            style={{ color: 'rgba(255,255,255,0.70)' }}
-          >
-            contatos
-          </a>
-          <button
-            onClick={() => {
-              setForm({
-                nome: perfil.nome,
-                o_que_faz: perfil.o_que_faz,
-                icp: perfil.icp,
-                rotina_frequencia: perfil.rotina_frequencia,
-                rotina_canais: perfil.rotina_canais as Canal[],
-              })
-              setErro(null)
-              setEditando(true)
-            }}
-            className="text-xs lowercase transition-all"
-            style={{ color: 'rgba(255,255,255,0.70)' }}
-          >
-            perfil
-          </button>
-          <button
-            onClick={logout}
-            className="text-xs lowercase transition-all"
-            style={{ color: 'rgba(255,255,255,0.45)' }}
-          >
-            sair
-          </button>
-        </div>
-      </div>
+        {/* Perfil: avatar + nome + bio + stats */}
+        <div className="px-6 py-5">
+          <div className="flex items-start gap-5">
 
+            {/* Avatar clicável */}
+            <label
+              className="flex-shrink-0 w-16 h-16 rounded-full overflow-hidden cursor-pointer relative group"
+              style={{ border: '1px solid rgba(255,255,255,0.18)' }}
+              title="trocar foto"
+            >
+              <input
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) uploadAvatar(file)
+                }}
+              />
+              {perfil.avatar_url ? (
+                <img
+                  src={perfil.avatar_url}
+                  alt={perfil.nome}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-2xl font-light lowercase select-none"
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.85)',
+                  }}
+                >
+                  {uploadingAvatar ? '...' : inicialNome}
+                </div>
+              )}
+              {/* Hover overlay */}
+              <div
+                className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ background: 'rgba(0,0,0,0.45)', fontSize: '10px', color: 'white' }}
+              >
+                {uploadingAvatar ? '...' : 'trocar'}
+              </div>
+            </label>
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <h1
+                className="text-lg font-medium lowercase leading-tight mb-1"
+                style={{ color: 'white' }}
+              >
+                {perfil.nome}
+              </h1>
+              <p
+                className="text-xs lowercase leading-relaxed mb-4"
+                style={{ color: 'rgba(255,255,255,0.5)', maxWidth: '32rem' }}
+              >
+                {perfil.o_que_faz.length > 200
+                  ? perfil.o_que_faz.slice(0, 200) + '...'
+                  : perfil.o_que_faz}
+              </p>
+
+              {/* Stats */}
+              <div className="flex items-start gap-6">
+                <div>
+                  <span className="text-xl font-medium block leading-none" style={{ color: 'white' }}>
+                    {totalContatos}
+                  </span>
+                  <span className="text-xs lowercase mt-0.5 block" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    marcas
+                  </span>
+                </div>
+                <div>
+                  <span className="text-xl font-medium block leading-none" style={{ color: 'white' }}>
+                    {perfil.rotina_frequencia}×
+                  </span>
+                  <span className="text-xs lowercase mt-0.5 block" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                    por semana
+                  </span>
+                </div>
+                {nichos.length > 0 && (
+                  <div className="flex-1 min-w-0 pt-0.5">
+                    <p className="text-xs lowercase leading-relaxed" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                      {nichos.slice(0, 3).join(' · ')}
+                      {nichos.length > 3 && (
+                        <span style={{ color: 'rgba(255,255,255,0.25)' }}> +{nichos.length - 3}</span>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Nav tabs */}
+        <div className="px-6 flex" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          {[
+            { href: '/hoje', label: 'hoje' },
+            { href: '/contatos', label: 'contatos' },
+          ].map((link) => {
+            const ativo = pathname === link.href
+            return (
+              <a
+                key={link.href}
+                href={link.href}
+                className="px-1 py-3 mr-6 text-xs lowercase transition-all"
+                style={{
+                  color: ativo ? 'white' : 'rgba(255,255,255,0.4)',
+                  borderBottom: `2px solid ${ativo ? 'white' : 'transparent'}`,
+                  marginBottom: '-1px',
+                }}
+              >
+                {link.label}
+              </a>
+            )
+          })}
+        </div>
+      </header>
+
+      {/* Modal editar perfil */}
       {editando && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.45)' }}
+          style={{ background: 'rgba(0,0,0,0.5)' }}
           onClick={(e) => e.target === e.currentTarget && setEditando(false)}
         >
           <div
@@ -226,19 +391,9 @@ export default function PerfilBar({ perfil: inicial }: { perfil: Perfil }) {
                       onClick={() => set('rotina_frequencia', f.valor)}
                       className="px-3 py-1.5 text-xs lowercase transition-all"
                       style={{
-                        background:
-                          form.rotina_frequencia === f.valor
-                            ? 'var(--color-primary)'
-                            : 'var(--color-bg)',
-                        color:
-                          form.rotina_frequencia === f.valor
-                            ? 'var(--color-text-inv)'
-                            : 'var(--color-muted)',
-                        border: `1px solid ${
-                          form.rotina_frequencia === f.valor
-                            ? 'var(--color-primary)'
-                            : 'var(--color-border)'
-                        }`,
+                        background: form.rotina_frequencia === f.valor ? 'var(--color-primary)' : 'var(--color-bg)',
+                        color: form.rotina_frequencia === f.valor ? 'var(--color-text-inv)' : 'var(--color-muted)',
+                        border: `1px solid ${form.rotina_frequencia === f.valor ? 'var(--color-primary)' : 'var(--color-border)'}`,
                         borderRadius: 'var(--radius-badge)',
                       }}
                     >
@@ -270,6 +425,38 @@ export default function PerfilBar({ perfil: inicial }: { perfil: Perfil }) {
                     )
                   })}
                 </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>nichos que você prospecta</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {NICHOS_SUGERIDOS.map((nicho) => {
+                    const sel = form.nichos_interesse.includes(nicho)
+                    return (
+                      <button
+                        key={nicho}
+                        onClick={() => toggleNicho(nicho)}
+                        className="px-3 py-1.5 text-xs lowercase transition-all"
+                        style={{
+                          background: sel ? 'var(--color-primary)' : 'var(--color-bg)',
+                          color: sel ? 'var(--color-text-inv)' : 'var(--color-muted)',
+                          border: `1px solid ${sel ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                          borderRadius: 'var(--radius-badge)',
+                        }}
+                      >
+                        {nicho}
+                      </button>
+                    )
+                  })}
+                </div>
+                <input
+                  type="text"
+                  value={outroNicho}
+                  onChange={(e) => setOutroNicho(e.target.value)}
+                  placeholder="outro nicho não listado..."
+                  className="w-full px-3 py-2 text-sm outline-none"
+                  style={inputStyle}
+                />
               </div>
 
               {erro && (

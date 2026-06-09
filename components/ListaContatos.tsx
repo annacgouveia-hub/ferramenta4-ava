@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Contato, Canal, StatusContato } from '@/lib/types'
 import { createClient } from '@/lib/supabase'
 import FormNovoContato from './FormNovoContato'
@@ -34,6 +35,7 @@ export default function ListaContatos({
   usuarioId: string
 }) {
   const supabase = createClient()
+  const router = useRouter()
   const [contatos, setContatos] = useState<Contato[]>(inicial)
   const [mostrando, setMostrando] = useState<'ativos' | 'dormindo' | 'fechou'>('ativos')
   const [adicionando, setAdicionando] = useState(false)
@@ -48,11 +50,13 @@ export default function ListaContatos({
   function aoAdicionar(novo: Contato) {
     setContatos((prev) => [novo, ...prev])
     setAdicionando(false)
+    router.refresh()
   }
 
   function aoEditar(atualizado: Contato) {
     setContatos((prev) => prev.map((c) => (c.id === atualizado.id ? atualizado : c)))
     setEditandoId(null)
+    router.refresh()
   }
 
   async function reativar(id: string) {
@@ -63,12 +67,14 @@ export default function ListaContatos({
     setContatos((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: 'na_lista', adiamentos: 0 } : c))
     )
+    router.refresh()
   }
 
   async function excluir(id: string) {
     await supabase.from('contatos').delete().eq('id', id)
     setContatos((prev) => prev.filter((c) => c.id !== id))
     setConfirmandoDeleteId(null)
+    router.refresh()
   }
 
   return (
@@ -92,15 +98,28 @@ export default function ListaContatos({
         ))}
       </div>
 
-      {/* Botão adicionar */}
+      {/* Botões de ação */}
       {!adicionando && (
-        <button
-          onClick={() => setAdicionando(true)}
-          className="mb-6 text-sm lowercase transition-all"
-          style={{ color: 'var(--color-accent)' }}
-        >
-          + adicionar contato
-        </button>
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            onClick={() => setAdicionando(true)}
+            className="text-sm lowercase transition-all"
+            style={{ color: 'var(--color-accent)' }}
+          >
+            + adicionar manualmente
+          </button>
+          <a
+            href="/contatos/encontrar"
+            className="text-sm lowercase transition-all px-3 py-1.5 rounded"
+            style={{
+              background: 'var(--color-lavanda)',
+              color: 'var(--color-primary)',
+              borderRadius: 'var(--radius-badge)',
+            }}
+          >
+            ✦ encontrar marcas com IA
+          </a>
+        </div>
       )}
 
       {/* Formulário de novo contato */}

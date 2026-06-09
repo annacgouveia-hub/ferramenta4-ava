@@ -22,7 +22,7 @@ export default async function ContatosPage() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
-      <PerfilBar perfil={perfil} />
+      <PerfilBar perfil={perfil} totalContatos={(contatos ?? []).length} />
 
       <main className="max-w-2xl mx-auto px-6 py-10">
         <div className="flex items-center justify-between mb-8">

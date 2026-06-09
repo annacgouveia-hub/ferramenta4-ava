@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Canal } from '@/lib/types'
 
-type Passo = 'nome' | 'o_que_faz' | 'icp' | 'rotina_frequencia' | 'rotina_canais'
+type Passo = 'nome' | 'o_que_faz' | 'icp' | 'rotina_frequencia' | 'rotina_canais' | 'nichos'
 
-const PASSOS: Passo[] = ['nome', 'o_que_faz', 'icp', 'rotina_frequencia', 'rotina_canais']
+const PASSOS: Passo[] = ['nome', 'o_que_faz', 'icp', 'rotina_frequencia', 'rotina_canais', 'nichos']
 
 const PERGUNTAS: Record<Passo, { pergunta: string; placeholder?: string; dica?: string }> = {
   nome: {
@@ -32,6 +32,10 @@ const PERGUNTAS: Record<Passo, { pergunta: string; placeholder?: string; dica?: 
     pergunta: 'por quais canais você costuma prospectar?',
     dica: 'seleciona os que você realmente usa. a ferramenta vai sugerir o canal certo para cada momento.',
   },
+  nichos: {
+    pergunta: 'quais nichos você quer prospectar?',
+    dica: 'seleciona todos que fazem sentido para o seu trabalho. isso vai ajudar a ferramenta a sugerir marcas e personalizar suas mensagens.',
+  },
 }
 
 const CANAIS: { valor: Canal; label: string }[] = [
@@ -47,6 +51,27 @@ const FREQUENCIAS = [
   { valor: 10, label: '10 por semana', descricao: 'ritmo ativo' },
 ]
 
+const NICHOS_SUGERIDOS = [
+  'bem-estar',
+  'saúde e fitness',
+  'gastronomia',
+  'bebidas',
+  'moda',
+  'beleza',
+  'skincare',
+  'lifestyle',
+  'casa e decoração',
+  'sustentabilidade',
+  'tecnologia',
+  'arte e cultura',
+  'viagem',
+  'educação',
+  'infantil e família',
+  'pet',
+  'orgânicos e naturais',
+  'esportes',
+]
+
 export default function OnboardingPage() {
   const router = useRouter()
   const supabase = createClient()
@@ -58,7 +83,9 @@ export default function OnboardingPage() {
     icp: '',
     rotina_frequencia: 5,
     rotina_canais: [] as Canal[],
+    nichos_interesse: [] as string[],
   })
+  const [outroNicho, setOutroNicho] = useState('')
   const [loading, setLoading] = useState(false)
   const [erroSalvar, setErroSalvar] = useState<string | null>(null)
 
@@ -77,6 +104,7 @@ export default function OnboardingPage() {
     if (passoAtual === 'icp') return form.icp.trim().length > 0
     if (passoAtual === 'rotina_frequencia') return true
     if (passoAtual === 'rotina_canais') return form.rotina_canais.length > 0
+    if (passoAtual === 'nichos') return form.nichos_interesse.length > 0 || outroNicho.trim().length > 0
     return false
   }
 
@@ -86,6 +114,15 @@ export default function OnboardingPage() {
       rotina_canais: prev.rotina_canais.includes(canal)
         ? prev.rotina_canais.filter((c) => c !== canal)
         : [...prev.rotina_canais, canal],
+    }))
+  }
+
+  function toggleNicho(nicho: string) {
+    setForm((prev) => ({
+      ...prev,
+      nichos_interesse: prev.nichos_interesse.includes(nicho)
+        ? prev.nichos_interesse.filter((n) => n !== nicho)
+        : [...prev.nichos_interesse, nicho],
     }))
   }
 
@@ -100,6 +137,10 @@ export default function OnboardingPage() {
         return
       }
 
+      const nichosFinal = outroNicho.trim()
+        ? [...form.nichos_interesse, outroNicho.trim()]
+        : form.nichos_interesse
+
       const { error } = await supabase.from('perfis').insert({
         id: user.id,
         nome: form.nome,
@@ -107,6 +148,7 @@ export default function OnboardingPage() {
         icp: form.icp,
         rotina_frequencia: form.rotina_frequencia,
         rotina_canais: form.rotina_canais,
+        nichos_interesse: nichosFinal,
       })
 
       if (error) throw error
@@ -253,6 +295,51 @@ export default function OnboardingPage() {
               })}
             </div>
           )}
+
+          {passoAtual === 'nichos' && (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap gap-2">
+                {NICHOS_SUGERIDOS.map((nicho) => {
+                  const selecionado = form.nichos_interesse.includes(nicho)
+                  return (
+                    <button
+                      key={nicho}
+                      onClick={() => toggleNicho(nicho)}
+                      className="px-3 py-1.5 text-xs lowercase transition-all"
+                      style={{
+                        background: selecionado ? 'var(--color-primary)' : 'var(--color-surface)',
+                        color: selecionado ? 'var(--color-text-inv)' : 'var(--color-primary)',
+                        border: `1px solid ${selecionado ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                        borderRadius: 'var(--radius-badge)',
+                        fontFamily: 'var(--font-main)',
+                      }}
+                    >
+                      {nicho}
+                    </button>
+                  )
+                })}
+              </div>
+              <input
+                type="text"
+                value={outroNicho}
+                onChange={(e) => setOutroNicho(e.target.value)}
+                placeholder="outro nicho não listado..."
+                className="w-full px-3 py-2 text-sm outline-none"
+                style={{
+                  background: 'var(--color-surface)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-input)',
+                  color: 'var(--color-primary)',
+                  fontFamily: 'var(--font-main)',
+                }}
+              />
+              {form.nichos_interesse.length > 0 && (
+                <p className="text-xs lowercase" style={{ color: 'var(--color-muted)' }}>
+                  {form.nichos_interesse.length} selecionado{form.nichos_interesse.length > 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Botão avançar */}
@@ -270,7 +357,7 @@ export default function OnboardingPage() {
         >
           {loading
             ? 'salvando...'
-            : passoAtual === 'rotina_canais'
+            : passoAtual === 'nichos'
             ? 'começar'
             : 'continuar'}
         </button>

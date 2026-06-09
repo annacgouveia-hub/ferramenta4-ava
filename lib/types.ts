@@ -42,6 +42,8 @@ export type Perfil = {
   icp: string
   rotina_frequencia: number
   rotina_canais: Canal[]
+  nichos_interesse: string[]
+  avatar_url: string | null
   created_at: string
 }
 

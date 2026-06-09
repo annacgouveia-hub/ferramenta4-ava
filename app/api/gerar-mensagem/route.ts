@@ -55,7 +55,8 @@ regras de escrita:
 - mensagens curtas — máximo 5 linhas
 - não inventar informações que não foram fornecidas
 - o foco é na marca/cliente, não em si mesma
-- a mensagem deve parecer escrita por uma pessoa real, não por uma empresa`
+- a mensagem deve parecer escrita por uma pessoa real, não por uma empresa
+- sem formatação markdown — sem asteriscos, sem headers, sem bullets, só texto simples`
 
   const prompts: Record<string, string> = {
     abordagem: `escreva uma mensagem de primeira abordagem para ${contato.nome} (nicho: ${contato.nicho}).

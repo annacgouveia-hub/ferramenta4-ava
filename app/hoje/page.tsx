@@ -25,13 +25,14 @@ export default async function HojePage() {
 
   const todasAcoes = calcularAcoesDoDia(contatos ?? [])
   const acoesDoDia = limitarPorRotina(todasAcoes, perfil.rotina_frequencia)
+  const totalContatos = (contatos ?? []).length
 
   return (
     <div
       className="min-h-screen"
       style={{ background: 'var(--color-bg)' }}
     >
-      <PerfilBar perfil={perfil} />
+      <PerfilBar perfil={perfil} totalContatos={totalContatos} />
 
       <main className="max-w-2xl mx-auto px-6 py-10">
         <HojeConteudo
@@ -39,6 +40,7 @@ export default async function HojePage() {
           perfil={perfil}
           checkins={checkins ?? []}
           usuarioId={user.id}
+          totalContatos={totalContatos}
         />
 
         {/* Link para contatos */}
