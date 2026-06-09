@@ -216,12 +216,15 @@ export default function ChatEncontrarMarcas({
                             >
                               {marca.nome}
                             </span>
-                            <span
-                              className="text-xs"
+                            <a
+                              href={`https://instagram.com/${marca.instagram.replace('@', '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs hover:underline"
                               style={{ color: 'var(--color-muted)' }}
                             >
                               {marca.instagram}
-                            </span>
+                            </a>
                           </div>
                           <p
                             className="text-xs lowercase mb-1"
