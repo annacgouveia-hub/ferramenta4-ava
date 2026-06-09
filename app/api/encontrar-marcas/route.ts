@@ -27,7 +27,7 @@ como conduzir a conversa:
 
 quando sugerir marcas, mencione que ela deve confirmar os @ antes de enviar mensagem, pois você pode ter lembrado errado algum handle.
 
-REGRA CRÍTICA: sua resposta deve ser SEMPRE um JSON válido, sem texto fora do json, neste formato exato:
+REGRA CRÍTICA: sua resposta deve ser SEMPRE e SOMENTE um JSON válido. NUNCA escreva nenhum texto antes ou depois do JSON. Nem uma palavra. Nem uma vírgula. Só o JSON puro. Formato exato:
 
 sem marcas ainda:
 {"resposta": "sua mensagem", "marcas": null}
@@ -50,9 +50,18 @@ com sugestões de marcas:
   const texto = response.content[0].type === 'text' ? response.content[0].text : ''
 
   try {
-    // Extrai o JSON da resposta (às vezes vem com ```json ... ```)
-    const jsonStr = texto.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    // Remove markdown code blocks se existirem
+    const limpo = texto.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+
+    // Extrai o objeto JSON de dentro do texto, mesmo que haja texto antes/depois
+    const inicio = limpo.indexOf('{')
+    const fim = limpo.lastIndexOf('}')
+
+    if (inicio === -1 || fim === -1) throw new Error('JSON não encontrado')
+
+    const jsonStr = limpo.slice(inicio, fim + 1)
     const parsed = JSON.parse(jsonStr)
+
     return NextResponse.json({
       resposta: parsed.resposta ?? texto,
       marcas: parsed.marcas ?? null,
