@@ -132,7 +132,7 @@ export default function ChatEncontrarMarcas({
 
     if (!error) {
       setAdicionadas((prev) => new Set([...prev, marca.instagram]))
-      router.refresh()
+      // Não chama router.refresh() aqui — causaria remount do componente e reiniciaria o chat
     }
   }
 
@@ -220,8 +220,12 @@ export default function ChatEncontrarMarcas({
                               href={`https://instagram.com/${marca.instagram.replace('@', '')}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-xs hover:underline"
-                              style={{ color: 'var(--color-muted)' }}
+                              className="text-xs"
+                              style={{
+                                color: 'var(--color-accent)',
+                                textDecoration: 'underline',
+                                cursor: 'pointer',
+                              }}
                             >
                               {marca.instagram}
                             </a>
