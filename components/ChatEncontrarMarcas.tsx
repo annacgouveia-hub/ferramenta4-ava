@@ -19,7 +19,7 @@ type SugestaoMarca = {
 
 type BlocoChat =
   | { tipo: 'mensagem'; msg: Mensagem }
-  | { tipo: 'sugestoes'; marcas: SugestaoMarca[]; texto: string }
+  | { tipo: 'sugestoes'; marcas: SugestaoMarca[]; texto: string; promptClaude: string | null }
 
 export default function ChatEncontrarMarcas({
   perfil,
@@ -37,6 +37,7 @@ export default function ChatEncontrarMarcas({
   const [input, setInput] = useState('')
   const [carregando, setCarregando] = useState(false)
   const [adicionadas, setAdicionadas] = useState<Set<string>>(new Set())
+  const [copiado, setCopiado] = useState(false)
   const [iniciou, setIniciou] = useState(false)
 
   // Rola para o fim sempre que chega nova mensagem
@@ -83,7 +84,7 @@ export default function ChatEncontrarMarcas({
       })
 
       const data = await res.json()
-      const { resposta, marcas } = data
+      const { resposta, marcas, prompt_claude } = data
 
       const msgAssistente: Mensagem = { role: 'assistant', content: resposta }
       const historicoAtualizado = [...novoHistorico, msgAssistente]
@@ -92,7 +93,7 @@ export default function ChatEncontrarMarcas({
       if (marcas && marcas.length > 0) {
         setBlocos((prev) => [
           ...prev,
-          { tipo: 'sugestoes', marcas, texto: resposta },
+          { tipo: 'sugestoes', marcas, texto: resposta, promptClaude: prompt_claude ?? null },
         ])
       } else {
         setBlocos((prev) => [
@@ -118,6 +119,12 @@ export default function ChatEncontrarMarcas({
     if (!texto || carregando) return
     setInput('')
     await enviarParaIA(texto)
+  }
+
+  async function copiarPrompt(texto: string) {
+    await navigator.clipboard.writeText(texto)
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2500)
   }
 
   async function adicionarMarca(marca: SugestaoMarca) {
@@ -262,6 +269,29 @@ export default function ChatEncontrarMarcas({
                     </div>
                   )
                 })}
+
+                {/* Botão copiar prompt para Claude.ai */}
+                {bloco.promptClaude && (
+                  <div className="mt-2">
+                    <button
+                      onClick={() => copiarPrompt(bloco.promptClaude!)}
+                      className="w-full px-4 py-3 text-sm lowercase text-left transition-all"
+                      style={{
+                        background: copiado ? 'var(--color-primary)' : 'var(--color-surface)',
+                        color: copiado ? 'var(--color-text-inv)' : 'var(--color-primary)',
+                        border: `1px solid ${copiado ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                        borderRadius: 'var(--radius-btn)',
+                      }}
+                    >
+                      {copiado
+                        ? '✓ prompt copiado — cole no Claude.ai para pesquisa verificada'
+                        : '✦ copiar prompt para pesquisar no Claude.ai →'}
+                    </button>
+                    <p className="text-xs mt-1.5 lowercase" style={{ color: 'var(--color-muted)' }}>
+                      o claude.ai tem acesso à internet e consegue verificar os @ antes de você usar
+                    </p>
+                  </div>
+                )}
               </div>
             )
           }
