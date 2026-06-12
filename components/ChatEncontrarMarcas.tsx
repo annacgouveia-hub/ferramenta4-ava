@@ -20,6 +20,7 @@ type SugestaoMarca = {
 type BlocoChat =
   | { tipo: 'mensagem'; msg: Mensagem }
   | { tipo: 'sugestoes'; marcas: SugestaoMarca[]; texto: string; promptClaude: string | null }
+  | { tipo: 'oferta-dossie' }
 
 export default function ChatEncontrarMarcas({
   perfil,
@@ -37,6 +38,8 @@ export default function ChatEncontrarMarcas({
   const [input, setInput] = useState('')
   const [carregando, setCarregando] = useState(false)
   const [adicionadas, setAdicionadas] = useState<Set<string>>(new Set())
+  const [marcasAdicionadasDetalhes, setMarcasAdicionadasDetalhes] = useState<SugestaoMarca[]>([])
+  const [dossieOfertado, setDossieOfertado] = useState(false)
   const [copiado, setCopiado] = useState(false)
   const [iniciou, setIniciou] = useState(false)
 
@@ -140,6 +143,73 @@ export default function ChatEncontrarMarcas({
     if (!error) {
       setAdicionadas((prev) => new Set([...prev, marca.instagram]))
       // Não chama router.refresh() aqui — causaria remount do componente e reiniciaria o chat
+
+      setMarcasAdicionadasDetalhes((prev) => {
+        const novas = [...prev, marca]
+        if (novas.length >= 3 && !dossieOfertado) {
+          setDossieOfertado(true)
+          setBlocos((b) => [...b, { tipo: 'oferta-dossie' }])
+        }
+        return novas
+      })
+    }
+  }
+
+  function gerarDossie() {
+    const data = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+    const conteudo = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Dossiê de Prospecção — ${perfil.nome}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, 'Times New Roman', serif; max-width: 680px; margin: 48px auto; padding: 0 24px; color: #1a1a2e; line-height: 1.65; }
+    h1 { font-size: 22px; font-weight: normal; letter-spacing: -0.02em; margin-bottom: 4px; }
+    .data { font-size: 12px; color: #999; margin-bottom: 40px; }
+    h2 { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: #aaa; margin: 36px 0 14px; }
+    .perfil p { font-size: 14px; line-height: 1.7; margin-bottom: 6px; }
+    .marca { margin-bottom: 20px; padding: 16px 20px; border: 1px solid #e8e0d8; border-radius: 6px; }
+    .marca-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+    .marca-nome { font-size: 15px; font-weight: bold; }
+    .marca-handle { font-size: 12px; color: #c1693a; }
+    .marca-nicho { font-size: 11px; color: #aaa; margin-bottom: 6px; text-transform: lowercase; }
+    .marca-motivo { font-size: 13px; color: #444; line-height: 1.6; }
+    .rodape { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e8e0d8; font-size: 11px; color: #bbb; }
+    @media print { body { margin: 24px auto; } }
+  </style>
+</head>
+<body>
+  <h1>dossiê de prospecção</h1>
+  <p class="data">${data}</p>
+
+  <h2>perfil da criadora</h2>
+  <div class="perfil">
+    <p><strong>${perfil.nome}</strong></p>
+    <p>${perfil.o_que_faz}</p>
+    ${perfil.icp ? `<p style="margin-top:10px;"><strong>ICP:</strong> ${perfil.icp}</p>` : ''}
+  </div>
+
+  <h2>marcas para prospectar (${marcasAdicionadasDetalhes.length})</h2>
+  ${marcasAdicionadasDetalhes.map((m) => `
+  <div class="marca">
+    <div class="marca-header">
+      <span class="marca-nome">${m.nome}</span>
+      <span class="marca-handle">${m.instagram}</span>
+    </div>
+    <div class="marca-nicho">${m.nicho}</div>
+    <div class="marca-motivo">${m.motivo}</div>
+  </div>`).join('')}
+
+  <div class="rodape">gerado pela ferramenta de prospecção AVA · confirme os @ antes de enviar mensagens</div>
+  <script>window.onload = () => window.print()</script>
+</body>
+</html>`
+
+    const janela = window.open('', '_blank')
+    if (janela) {
+      janela.document.write(conteudo)
+      janela.document.close()
     }
   }
 
@@ -292,6 +362,51 @@ export default function ChatEncontrarMarcas({
                     </p>
                   </div>
                 )}
+              </div>
+            )
+          }
+
+          if (bloco.tipo === 'oferta-dossie') {
+            return (
+              <div key={i} className="flex justify-start">
+                <div
+                  className="px-4 py-4 text-sm leading-relaxed"
+                  style={{
+                    maxWidth: '80%',
+                    borderRadius: '16px 16px 16px 4px',
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-primary)',
+                  }}
+                >
+                  <p className="mb-3">
+                    você já adicionou {marcasAdicionadasDetalhes.length} marcas. quer que eu monte o dossiê de prospecção em PDF?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={gerarDossie}
+                      className="px-4 py-2 text-xs lowercase font-medium transition-all"
+                      style={{
+                        background: 'var(--color-accent)',
+                        color: 'var(--color-text-inv)',
+                        borderRadius: 'var(--radius-badge)',
+                      }}
+                    >
+                      sim, gerar dossiê
+                    </button>
+                    <button
+                      className="px-4 py-2 text-xs lowercase transition-all"
+                      style={{
+                        background: 'var(--color-bg)',
+                        color: 'var(--color-muted)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-badge)',
+                      }}
+                    >
+                      agora não
+                    </button>
+                  </div>
+                </div>
               </div>
             )
           }
